@@ -33,4 +33,4 @@ Try with any 4 commands - create, drop, list, display, exit.
 
 ## Orderbook View snapshot
 
-![img.png](img.png)
+![img.png](docs/img.png)
