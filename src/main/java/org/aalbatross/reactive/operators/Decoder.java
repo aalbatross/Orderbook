@@ -201,8 +201,45 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.reactive.operators;
 
-interface Displayable {
-  void display(int limit);
+import org.aalbatross.orders.channels.response.Level2Response;
+import org.aalbatross.orders.channels.response.Level2SnapshotResponse;
+import org.aalbatross.orders.channels.response.Level2UpdateNotification;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import io.reactivex.rxjava3.functions.Function;
+
+import java.util.Optional;
+
+public class Decoder implements Function<String, Optional<Level2Response>> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Decoder.class);
+  private ObjectMapper MAPPER;
+
+  public Decoder() {
+    MAPPER = new ObjectMapper();
+    MAPPER.registerModule(new JavaTimeModule());
+  }
+
+  @Override
+  public Optional<Level2Response> apply(String s) {
+    try {
+      var node = MAPPER.readTree(s);
+      if (node.has("type") && node.get("type").asText().equals("snapshot")) {
+        return Optional.of(MAPPER.treeToValue(node, Level2SnapshotResponse.class));
+      } else if (node.has("type") && node.get("type").asText().equals("l2update")) {
+        return Optional.of(MAPPER.treeToValue(node, Level2UpdateNotification.class));
+      } else {
+        LOGGER.warn("Unknown event received : {}", s);
+        return Optional.empty();
+      }
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }

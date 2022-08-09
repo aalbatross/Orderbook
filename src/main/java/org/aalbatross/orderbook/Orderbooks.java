@@ -203,6 +203,13 @@
 */
 package org.aalbatross.orderbook;
 
-interface Displayable {
-  void display(int limit);
+public interface Orderbooks {
+
+  static Orderbook usingMap(String productId, int maxLimit) {
+    return new LimitOrderbook(productId, maxLimit);
+  }
+
+  static Orderbook usingSkipListMap(String productId, int maxLimit) {
+    return new LimitOrderbook2(productId, maxLimit);
+  }
 }

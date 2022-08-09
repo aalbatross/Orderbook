@@ -203,6 +203,57 @@
 */
 package org.aalbatross.orderbook;
 
-interface Displayable {
-  void display(int limit);
+import org.aalbatross.orderbook.entities.Order;
+
+import lombok.Getter;
+import lombok.ToString;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+
+@Getter
+@ToString
+class Limit {
+  private final double price;
+  private double size;
+  private final Map<Order, Integer> freqOrders = new LinkedHashMap<>();
+
+  public Limit(Order order) {
+    this.price = order.getPrice();
+    this.size = order.getSize();
+    this.freqOrders.putIfAbsent(order, 1);
+  }
+
+  private void accumulateHelper(Order order) {
+    freqOrders.compute(order, (key, value) -> {
+      if (value == null)
+        return 1;
+      else
+        return value + 1;
+    });
+  }
+
+  public Limit accumulate(Order order) {
+    if (this.price != order.getPrice())
+      throw new IllegalArgumentException("Wrong order in the limit");
+    size += order.getSize();
+    accumulateHelper(order);
+    return this;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o)
+      return true;
+    if (o == null || getClass() != o.getClass())
+      return false;
+    Limit limit = (Limit) o;
+    return Double.compare(limit.price, price) == 0;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(price);
+  }
 }

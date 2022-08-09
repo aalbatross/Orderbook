@@ -201,8 +201,17 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.configuration;
 
-interface Displayable {
-  void display(int limit);
+import jakarta.websocket.ClientEndpointConfig;
+import lombok.Builder;
+import lombok.Getter;
+
+import java.net.URI;
+
+@Getter
+@Builder
+public class WebsocketClientConfiguration {
+  private final URI endPoint;
+  private ClientEndpointConfig endpointConfig;
 }

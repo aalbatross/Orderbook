@@ -201,8 +201,159 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.reactive.client;
 
-interface Displayable {
-  void display(int limit);
+import org.aalbatross.configuration.WebsocketClientConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import jakarta.websocket.*;
+import lombok.Getter;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+
+@Getter
+public class WebsocketClient implements Client {
+  private static final Logger LOGGER = LoggerFactory.getLogger(WebsocketEndpoint.class);
+
+  private final Consumer<String> receive;
+  private final Consumer<Throwable> error;
+  private final Consumer<Void> close;
+  private final WebsocketClientConfiguration configuration;
+  private WebsocketEndpoint endpoint;
+  private final AtomicBoolean running = new AtomicBoolean(false);
+
+  private WebsocketClient(WebsocketClientConfiguration configuration, Consumer<String> receive,
+      Consumer<Throwable> error, Consumer<Void> close) {
+    this.receive = receive;
+    this.error = error;
+    this.configuration = configuration;
+    this.close = close;
+  }
+
+  @Override
+  public void start() {
+    if (!isRunning()) {
+      endpoint = new WebsocketEndpoint();
+      endpoint.init();
+      running.set(true);
+    }
+  }
+
+  @Override
+  public boolean isRunning() {
+    return running.get();
+  }
+
+  @Override
+  public void send(byte[] bytes) {
+    if (isRunning()) {
+      var text = new String(bytes, StandardCharsets.UTF_8);
+      endpoint.session.getAsyncRemote().sendText(text);
+      LOGGER.info("Send messages {}", text);
+    }
+  }
+
+  @Override
+  public void receive(byte[] bytes) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void stop() {
+    if (isRunning()) {
+      try {
+        endpoint.session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "stopped."));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      } finally {
+        running.set(false);
+      }
+    }
+  }
+
+  public static final class Builder {
+    private final WebsocketClientConfiguration clientConfiguration;
+    private Consumer<String> receive = (str) -> {
+    };
+    private Consumer<Throwable> error = (throwable) -> {
+    };
+    private Consumer<Void> close = (e) -> {
+    };
+
+    private Builder(WebsocketClientConfiguration configuration) {
+      this.clientConfiguration = configuration;
+    }
+
+    public static Builder aWebsocketClient(WebsocketClientConfiguration configuration) {
+      return new Builder(configuration);
+    }
+
+    public Builder withOnReceive(Consumer<String> receive) {
+      this.receive = receive;
+      return this;
+    }
+
+    public Builder withOnError(Consumer<Throwable> error) {
+      this.error = error;
+      return this;
+    }
+
+    public Builder withOnClose(Consumer<Void> closer) {
+      this.close = closer;
+      return this;
+    }
+
+    public WebsocketClient build() {
+      return new WebsocketClient(clientConfiguration, receive, error, close);
+    }
+  }
+
+  @ClientEndpoint
+  public class WebsocketEndpoint extends Endpoint {
+    private Session session;
+    private StringBuilder stringBuilder = new StringBuilder();
+
+    void init() {
+      try {
+        WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+        this.session = container.connectToServer(this, configuration.getEndPoint());
+        container.setDefaultMaxTextMessageBufferSize(Integer.MAX_VALUE);
+        container.setDefaultMaxBinaryMessageBufferSize(Integer.MAX_VALUE);
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public void onOpen(Session session, EndpointConfig config) {
+      this.session = session;
+    }
+
+    @OnMessage
+    public void onMessage(String message, boolean last) {
+      LOGGER.debug("Received messsages {}", message);
+      stringBuilder.append(message);
+      if (last) {
+        receive.accept(stringBuilder.toString());
+        stringBuilder = new StringBuilder();
+      }
+    }
+
+    @OnError
+    public final void onError(Throwable throwable) {
+      LOGGER.error("Error received {}", throwable.getMessage(), throwable);
+      error.accept(throwable);
+    }
+
+    @OnClose
+    public void close(Session session, CloseReason closeReason) {
+      LOGGER.info("Closing session due to {} {}", closeReason.getCloseCode(),
+          closeReason.getReasonPhrase());
+      close.accept(null);
+    }
+  }
 }

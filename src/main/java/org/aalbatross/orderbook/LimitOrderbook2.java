@@ -203,6 +203,116 @@
 */
 package org.aalbatross.orderbook;
 
-interface Displayable {
-  void display(int limit);
+import org.aalbatross.orderbook.entities.Order;
+import org.aalbatross.orderbook.entities.OrderType;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+
+public class LimitOrderbook2 implements Orderbook {
+  private final NavigableMap<Double, Limit> buyLimit;
+  private final NavigableMap<Double, Limit> sellLimit;
+
+  private AtomicLong buyFrequency = new AtomicLong();
+  private AtomicLong sellFrequency = new AtomicLong();
+
+  private final String productId;
+  private final int maxLimit;
+
+  LimitOrderbook2(String productId, int maxLimit) {
+    this(productId, maxLimit, new ConcurrentSkipListMap<>(),
+        new ConcurrentSkipListMap<>(Comparator.reverseOrder()));
+  }
+
+  LimitOrderbook2(String productId, int maxLimit, NavigableMap<Double, Limit> buyLimit,
+      NavigableMap<Double, Limit> sellLimit) {
+    Objects.requireNonNull(productId,
+        "Orderbook cannot be initialized, ProductId cannot be null !!.");
+    this.productId = productId;
+    this.maxLimit = maxLimit;
+    this.buyLimit = buyLimit;
+    this.sellLimit = sellLimit;
+  }
+
+  public List<Order> topBuys(int limit) {
+    if (limit > maxLimit)
+      limit = maxLimit;
+    return buyLimit.descendingKeySet().stream().limit(limit).map(price -> buyLimit.get(price))
+        .map(priceLimit -> Order.builder().orderType(OrderType.BUY).price(priceLimit.getPrice())
+            .size(priceLimit.getSize()).build())
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  public List<Order> topSells(int limit) {
+    if (limit > maxLimit)
+      limit = maxLimit;
+    return sellLimit.descendingKeySet().stream().limit(limit).map(price -> sellLimit.get(price))
+        .map(priceLimit -> Order.builder().orderType(OrderType.SELL).price(priceLimit.getPrice())
+            .size(priceLimit.getSize()).build())
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  @Override
+  public String getProductId() {
+    return productId;
+  }
+
+  @Override
+  public Order highestBid() {
+    return Optional.of(buyLimit.lastEntry().getValue()).map(limit -> Order.builder()
+        .orderType(OrderType.BUY).price(limit.getPrice()).size(limit.getSize()).build()).get();
+  }
+
+  @Override
+  public Order lowestAsk() {
+    return Optional.of(sellLimit.lastEntry().getValue()).map(limit -> Order.builder()
+        .orderType(OrderType.BUY).price(limit.getPrice()).size(limit.getSize()).build()).get();
+  }
+
+  @Override
+  public int maxLimit() {
+    return maxLimit;
+  }
+
+  @Override
+  public long buySize() {
+    return buyFrequency.get();
+  }
+
+  @Override
+  public long sellSize() {
+    return sellFrequency.get();
+  }
+
+  @Override
+  public void update(Order order) {
+    if (order.getOrderType().equals(OrderType.BUY)) {
+      buyFrequency.incrementAndGet();
+      buyLimit.compute(order.getPrice(), (price, limit) -> Optional.ofNullable(limit)
+          .map(limit1 -> limit1.accumulate(order)).orElseGet(() -> {
+            if (buyLimit.size() <= maxLimit || order.getPrice() > buyLimit.firstKey()) {
+              return new Limit(order);
+            }
+            return null;
+          }));
+      if (buyLimit.size() > maxLimit) {
+        buyLimit.pollFirstEntry();
+      }
+    }
+    if (order.getOrderType().equals(OrderType.SELL)) {
+      sellFrequency.incrementAndGet();
+      sellLimit.compute(order.getPrice(), (price, limit) -> Optional.ofNullable(limit)
+          .map(limit1 -> limit1.accumulate(order)).orElseGet(() -> {
+            if (sellLimit.size() <= maxLimit || order.getPrice() < sellLimit.firstKey()) {
+              return new Limit(order);
+            }
+            return null;
+          }));
+      if (sellLimit.size() > maxLimit) {
+        sellLimit.pollFirstEntry();
+      }
+    }
+  }
 }

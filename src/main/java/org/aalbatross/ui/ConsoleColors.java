@@ -201,8 +201,13 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.ui;
 
-interface Displayable {
-  void display(int limit);
+public class ConsoleColors {
+  // Reset
+  public static final String RESET = "\033[0m"; // Text Reset
+
+  // Regular Colors
+  public static final String GREEN = "\033[0;32m"; // GREEN
+  public static final String BLUE = "\033[0;34m"; // BLUE
 }
