@@ -207,28 +207,42 @@ import org.aalbatross.command.CommandManager;
 import org.aalbatross.reactive.flows.OrderbookFlowManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Scanner;
 
-public class App {
+@SpringBootApplication
+public class App implements CommandLineRunner {
   private static final Logger LOGGER = LoggerFactory.getLogger(App.class);
   private static final String WELCOME = "Welcome to Orderbook View.";
 
   public static void main(String[] args) {
-    System.out.println(WELCOME);
-    System.out.println(CommandManager.INSTANCE.helpMessage());
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       OrderbookFlowManager.INSTANCE.closeAll();
-      LOGGER.info("Closing app.");
+      LOGGER.info("Closing App");
     }));
+
+    SpringApplication.run(App.class, args);
+  }
+
+  @Override
+  public void run(String... args) {
+    System.out.println(WELCOME);
+    System.out.println(CommandManager.INSTANCE.helpMessage());
 
     while (true) {
       Scanner sc = new Scanner(System.in, StandardCharsets.UTF_8);
       var commandInput = sc.nextLine();
       var cmds = Arrays.asList(commandInput.split("\\s"));
-      CommandManager.INSTANCE.handle(cmds);
+      try {
+        CommandManager.INSTANCE.handle(cmds);
+      } catch (Exception ex) {
+        LOGGER.error("Error running command : {}", ex.getMessage(), ex);
+      }
     }
   }
 }

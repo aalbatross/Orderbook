@@ -235,10 +235,10 @@ public enum OrderbookFlowManager {
     }
   }
 
-  public void displayOrderBook(String productId) {
+  public void displayOrderBook(String productId, int limit) {
     var productKey = productId.toUpperCase(Locale.ROOT);
     if (flowStore.containsKey(productKey)) {
-      flowStore.get(productKey).display();
+      flowStore.get(productKey).display(limit);
     } else {
       throw new RuntimeException("Create new Orderbook for " + productKey + " to display it.");
     }

@@ -204,9 +204,9 @@
 package org.aalbatross.command;
 
 import org.aalbatross.reactive.flows.OrderbookFlowManager;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -215,7 +215,7 @@ import java.util.List;
 
 public class CommandManagerIntegrationTest {
 
-  @Before
+  @BeforeEach
   public void init() {
     OrderbookFlowManager.INSTANCE.closeAll();
   }
@@ -235,14 +235,14 @@ public class CommandManagerIntegrationTest {
 
     Thread.sleep(2000);
     mgr.handle(List.of("list"));
-    Assert.assertEquals(2, fmgr.list().size());
+    Assertions.assertEquals(2, fmgr.list().size());
 
     mgr.handle(List.of("drop", "ETH-USD"));
     mgr.handle(List.of("drop", "BTC-USD"));
 
     Thread.sleep(2000);
     mgr.handle(List.of("list"));
-    Assert.assertTrue(fmgr.list().isEmpty());
+    Assertions.assertTrue(fmgr.list().isEmpty());
   }
 
   private void runOutputTest(List<String> command, String expectedOutput) {
@@ -251,8 +251,9 @@ public class CommandManagerIntegrationTest {
     final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
     System.setOut(new PrintStream(outputStreamCaptor));
     mgr.handle(command);
-    Assert.assertFalse(outputStreamCaptor.toString(StandardCharsets.UTF_8).isEmpty());
-    Assert.assertTrue(outputStreamCaptor.toString(StandardCharsets.UTF_8).contains(expectedOutput));
+    Assertions.assertFalse(outputStreamCaptor.toString(StandardCharsets.UTF_8).isEmpty());
+    Assertions
+        .assertTrue(outputStreamCaptor.toString(StandardCharsets.UTF_8).contains(expectedOutput));
     System.setOut(standardOut);
   }
 

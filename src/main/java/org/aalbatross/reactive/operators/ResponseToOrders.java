@@ -209,14 +209,15 @@ import org.aalbatross.orders.channels.response.Level2Response;
 import org.aalbatross.orders.channels.response.Level2SnapshotResponse;
 import org.aalbatross.orders.channels.response.Level2UpdateNotification;
 
+import io.reactivex.rxjava3.functions.Function;
+
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class ResponseToOrders implements Function<Level2Response, List<Order>> {
 
-  private final Function<Level2SnapshotResponse, List<Order>> snapshotResponseToOrders =
+  private final java.util.function.Function<Level2SnapshotResponse, List<Order>> snapshotResponseToOrders =
       response -> {
         var buyOrders = response.getBids().stream()
             .map(fields -> Order.builder().orderType(OrderType.BUY)
@@ -231,7 +232,7 @@ public class ResponseToOrders implements Function<Level2Response, List<Order>> {
         return Stream.of(buyOrders, sellOrders).flatMap(Collection::stream)
             .collect(Collectors.toList());
       };
-  private final Function<Level2UpdateNotification, List<Order>> updateNotificationToOrders =
+  private final java.util.function.Function<Level2UpdateNotification, List<Order>> updateNotificationToOrders =
       response -> response.getChanges().stream()
           .map(change -> Order.builder()
               .orderType(OrderType.valueOf(change.get(0).toUpperCase(Locale.ROOT)))

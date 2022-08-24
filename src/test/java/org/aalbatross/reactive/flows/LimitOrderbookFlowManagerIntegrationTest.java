@@ -201,8 +201,62 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.reactive.flows;
 
-interface Displayable {
-  void display(int limit);
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.Set;
+
+public class LimitOrderbookFlowManagerIntegrationTest {
+
+  @BeforeEach
+  public void init() {
+    OrderbookFlowManager.INSTANCE.closeAll();
+  }
+
+  @Test
+  public void simpleFlowManagerTest() throws InterruptedException {
+    var mgr = OrderbookFlowManager.INSTANCE;
+    mgr.createNewOrderbook("ETH-USD");
+    mgr.createNewOrderbook("BTC-USD");
+
+    Thread.sleep(5000);
+    Assertions.assertEquals(Set.of("ETH-USD", "BTC-USD"), mgr.list());
+
+    mgr.displayOrderBook("ETH-USD", 10);
+    mgr.displayOrderBook("BTC-USD", 10);
+
+    Thread.sleep(2000);
+
+    mgr.stopOrderbook("ETH-USD");
+
+    mgr.closeAll();
+
+    Assertions.assertTrue(mgr.list().isEmpty());
+  }
+
+  @Test
+  public void sameProductFlowManagerTest() throws InterruptedException {
+    var mgr = OrderbookFlowManager.INSTANCE;
+    mgr.createNewOrderbook("ETH-USD");
+
+    Thread.sleep(5000);
+    Assertions.assertThrows(RuntimeException.class, () -> mgr.createNewOrderbook("ETH-USD"));
+  }
+
+  @Test
+  public void stopNonExistingProductFlowManagerTest() {
+    var mgr = OrderbookFlowManager.INSTANCE;
+    Assertions.assertThrows(RuntimeException.class, () -> mgr.stopOrderbook("ETH-USD"));
+
+  }
+
+  @Test
+  public void displayNonExistingProductFlowManagerTest() {
+    var mgr = OrderbookFlowManager.INSTANCE;
+    Assertions.assertThrows(RuntimeException.class, () -> mgr.displayOrderBook("ETH-USD", 10));
+  }
 }

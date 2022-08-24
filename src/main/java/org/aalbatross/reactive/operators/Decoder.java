@@ -201,36 +201,45 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.reactive.flows;
+package org.aalbatross.reactive.operators;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.aalbatross.orders.channels.response.Level2Response;
+import org.aalbatross.orders.channels.response.Level2SnapshotResponse;
+import org.aalbatross.orders.channels.response.Level2UpdateNotification;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-public class OrderbookFlowIntegrationTest {
+import io.reactivex.rxjava3.functions.Function;
 
-  @Test
-  public void testSimpleOrderbookFlow() throws InterruptedException {
-    var flow = new OrderbookFlow("ETH-USD", "test");
-    flow.start();
-    Assert.assertEquals("test", flow.name());
-    Assert.assertEquals("ETH-USD", flow.getProductId());
+import java.util.Optional;
 
-    Thread.sleep(5000);
-    Assert.assertTrue(flow.isRunning());
-    flow.stop();
+public class Decoder implements Function<String, Optional<Level2Response>> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(Decoder.class);
+  private ObjectMapper MAPPER;
 
-    final var standardOut = System.out;
-    final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
-    System.setOut(new PrintStream(outputStreamCaptor));
-    flow.display();
-    Assert.assertFalse(outputStreamCaptor.toString(StandardCharsets.UTF_8).isEmpty());
-    Assert.assertTrue(outputStreamCaptor.toString(StandardCharsets.UTF_8)
-        .contains("Orderbook: productId: ETH-USD"));
-    System.setOut(standardOut);
-    Assert.assertFalse(flow.isRunning());
+  public Decoder() {
+    MAPPER = new ObjectMapper();
+    MAPPER.registerModule(new JavaTimeModule());
+  }
+
+  @Override
+  public Optional<Level2Response> apply(String s) {
+    try {
+      var node = MAPPER.readTree(s);
+      if (node.has("type") && node.get("type").asText().equals("snapshot")) {
+        return Optional.of(MAPPER.treeToValue(node, Level2SnapshotResponse.class));
+      } else if (node.has("type") && node.get("type").asText().equals("l2update")) {
+        return Optional.of(MAPPER.treeToValue(node, Level2UpdateNotification.class));
+      } else {
+        LOGGER.warn("Unknown event received : {}", s);
+        return Optional.empty();
+      }
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

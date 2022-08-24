@@ -201,60 +201,84 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.reactive.flows;
+package org.aalbatross.orderbook;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.aalbatross.orderbook.entities.Order;
+import org.aalbatross.orderbook.entities.OrderType;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-import java.util.Set;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-public class OrderbookFlowManagerIntegrationTest {
 
-  @Before
-  public void init() {
-    OrderbookFlowManager.INSTANCE.closeAll();
+public class LimitOrderbook2Test {
+
+  List<Order> buys = IntStream.range(0, 20).asDoubleStream()
+      .mapToObj(price -> Order.builder().orderType(OrderType.BUY).price(price).size(15.0).build())
+      .collect(Collectors.toList());
+  List<Order> sells = IntStream.range(0, 20).asDoubleStream()
+      .mapToObj(price -> Order.builder().orderType(OrderType.SELL).price(price).size(15.0).build())
+      .collect(Collectors.toList());
+
+  @Test
+  public void displayTest() {
+    LimitOrderbook2 BOOK = new LimitOrderbook2("XYZ", 10);
+    Stream.concat(buys.stream(), sells.stream()).forEachOrdered(BOOK::update);
+
+    Assertions.assertEquals(20, BOOK.buySize());
+    Assertions.assertEquals(20, BOOK.sellSize());
+
+    var expectedBuyResult = IntStream.iterate(19, x -> x >= 10, x -> x - 1).asDoubleStream()
+        .mapToObj(price -> Order.builder().orderType(OrderType.BUY).price(price).size(15.0).build())
+        .collect(Collectors.toList());
+    var expectedSellResult = IntStream.iterate(0, x -> x < 10, x -> x + 1).asDoubleStream()
+        .mapToObj(
+            price -> Order.builder().orderType(OrderType.SELL).price(price).size(15.0).build())
+        .collect(Collectors.toList());
+
+    Assertions.assertEquals(expectedBuyResult, BOOK.top10Buys());
+    Assertions.assertEquals(expectedSellResult, BOOK.top10Sells());
+    Assertions.assertEquals("XYZ", BOOK.getProductId());
+
+    final var standardOut = System.out;
+    final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
+    System.setOut(new PrintStream(outputStreamCaptor));
+    BOOK.display(10);
+    Assertions.assertFalse(outputStreamCaptor.toString(StandardCharsets.UTF_8).isEmpty());
+    Assertions.assertTrue(outputStreamCaptor.toString(StandardCharsets.UTF_8).replaceAll("\\s", "")
+        .contains("Orderbook: productId: XYZ Frequency: buy: 20 sell: 20".replaceAll("\\s", "")));
+    System.setOut(standardOut);
+    System.out.println(outputStreamCaptor.toString(StandardCharsets.UTF_8));
   }
 
   @Test
-  public void simpleFlowManagerTest() throws InterruptedException {
-    var mgr = OrderbookFlowManager.INSTANCE;
-    mgr.createNewOrderbook("ETH-USD");
-    mgr.createNewOrderbook("BTC-USD");
-
-    Thread.sleep(5000);
-    Assert.assertEquals(Set.of("ETH-USD", "BTC-USD"), mgr.list());
-
-    mgr.displayOrderBook("ETH-USD");
-    mgr.displayOrderBook("BTC-USD");
-
-    Thread.sleep(2000);
-
-    mgr.stopOrderbook("ETH-USD");
-
-    mgr.closeAll();
-
-    Assert.assertTrue(mgr.list().isEmpty());
+  public void displayWhenEmptyTest() {
+    LimitOrderbook2 BOOK = new LimitOrderbook2("XYZ", 10);
+    BOOK.display(10);
   }
 
-  @Test(expected = RuntimeException.class)
-  public void sameProductFlowManagerTest() throws InterruptedException {
-    var mgr = OrderbookFlowManager.INSTANCE;
-    mgr.createNewOrderbook("ETH-USD");
+  @Test
+  public void checkUpdate() {
+    var buyLimit = (ConcurrentSkipListMap<Double, Limit>) Mockito.spy(ConcurrentSkipListMap.class);
+    var sellLimit = (ConcurrentSkipListMap<Double, Limit>) Mockito.spy(ConcurrentSkipListMap.class);
+    LimitOrderbook2 BOOK = new LimitOrderbook2("XYZ", 10, buyLimit, sellLimit);
 
-    Thread.sleep(5000);
-    mgr.createNewOrderbook("ETH-USD");
-  }
-
-  @Test(expected = RuntimeException.class)
-  public void stopNonExistingProductFlowManagerTest() {
-    var mgr = OrderbookFlowManager.INSTANCE;
-    mgr.stopOrderbook("ETH-USD");
-  }
-
-  @Test(expected = RuntimeException.class)
-  public void displayNonExistingProductFlowManagerTest() {
-    var mgr = OrderbookFlowManager.INSTANCE;
-    mgr.displayOrderBook("ETH-USD");
+    buys.stream().forEachOrdered(BOOK::update);
+    var values = buyLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
+        .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+    Assertions.assertEquals(10, values.size());
+    sells.stream().forEachOrdered(BOOK::update);
+    var values2 = sellLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
+        .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+    Assertions.assertEquals(10, values2.size());
   }
 }

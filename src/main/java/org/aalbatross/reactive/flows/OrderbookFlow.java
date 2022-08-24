@@ -203,26 +203,30 @@
 */
 package org.aalbatross.reactive.flows;
 
-import org.aalbatross.reactive.source.CoinbaseLevel2OrderSource;
+import org.aalbatross.reactive.operators.Decoder;
+import org.aalbatross.reactive.operators.ResponseToOrders;
+import org.aalbatross.reactive.source.CoinbaseLevel2Publisher;
 import org.aalbatross.reactive.subscribers.ProductOrderSubscriber;
 
-import io.reactivex.rxjava3.core.BackpressureStrategy;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
 import lombok.NonNull;
 
+import java.util.List;
+import java.util.Optional;
+
 class OrderbookFlow implements Flow {
   private final String productId;
   private final String name;
-  private final CoinbaseLevel2OrderSource level2OrderSource;
+  private final CoinbaseLevel2Publisher level2OrderSource;
   private final ProductOrderSubscriber subscriber;
 
   public OrderbookFlow(@NonNull String productId, @NonNull String name) {
     this.productId = productId;
     this.name = name;
-    this.level2OrderSource = new CoinbaseLevel2OrderSource(productId);
-    this.subscriber = new ProductOrderSubscriber(productId);
+    this.level2OrderSource = new CoinbaseLevel2Publisher(productId);
+    this.subscriber = new ProductOrderSubscriber(productId, 10);
   }
 
   @Override
@@ -236,17 +240,22 @@ class OrderbookFlow implements Flow {
 
   @Override
   public synchronized void start() {
-    Flowable.create(level2OrderSource, BackpressureStrategy.BUFFER).subscribeOn(Schedulers.io())
+    Flowable.unsafeCreate(level2OrderSource).subscribeOn(Schedulers.io()).map(new Decoder())
+        .flatMapStream(Optional::stream).map(new ResponseToOrders()).flatMapStream(List::stream)
         .subscribe(subscriber);
   }
 
-  public synchronized void display() {
-    subscriber.book().display();
+  public synchronized void display(int limit) {
+    subscriber.book().display(limit);
   }
 
   @Override
   public synchronized void stop() {
-    level2OrderSource.stop();
+    try {
+      level2OrderSource.close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override

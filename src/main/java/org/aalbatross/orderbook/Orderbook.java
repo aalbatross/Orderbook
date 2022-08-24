@@ -204,72 +204,50 @@
 package org.aalbatross.orderbook;
 
 import org.aalbatross.orderbook.entities.Order;
-import org.aalbatross.orderbook.entities.OrderType;
+import org.aalbatross.ui.ConsoleColors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.List;
+import java.util.Optional;
 
-public class Orderbook implements Displayable, Updateable {
-  private final String productId;
-  private final Deque<Order> buyOrders = new ConcurrentLinkedDeque<>();
-  private final Deque<Order> sellOrders = new ConcurrentLinkedDeque<>();
+public interface Orderbook extends Displayable, Updateable {
+  Logger LOGGER = LoggerFactory.getLogger(Orderbook.class);
 
-  public Orderbook(String productId) {
-    Objects.requireNonNull(productId,
-        "Orderbook cannot be initialized, ProductId cannot be null !!.");
-    this.productId = productId;
+  String getProductId();
+
+  Order highestBid();
+
+  Order lowestAsk();
+
+  int maxLimit();
+
+  long buySize();
+
+  long sellSize();
+
+  default List<Order> top10Buys() {
+    return topBuys(10);
   }
 
-  public String getProductId() {
-    return productId;
+  default List<Order> top10Sells() {
+    return topSells(10);
   }
 
-  List<Order> top10Buys() {
-    Queue<Order> minHeap =
-        new PriorityQueue<>((o1, o2) -> Double.compare(o1.getPrice(), o2.getPrice()));
-    Collection<Order> buyCollection = Collections.unmodifiableCollection(buyOrders);
-    List<Order> buys = new ArrayList<>();
-    for (Order order : buyCollection) {
-      minHeap.offer(order);
-      if (minHeap.size() > 10)
-        minHeap.poll();
-    }
-    while (!minHeap.isEmpty())
-      buys.add(minHeap.poll());
-    Collections.reverse(buys);
-    return buys;
-  }
+  List<Order> topBuys(int limit);
 
-  List<Order> top10Sells() {
-    Queue<Order> maxHeap =
-        new PriorityQueue<>((o1, o2) -> Double.compare(o2.getPrice(), o1.getPrice()));
-    Collection<Order> sellCollection = Collections.unmodifiableCollection(sellOrders);
-    List<Order> sells = new ArrayList<>();
-    for (Order order : sellCollection) {
-      maxHeap.offer(order);
-      if (maxHeap.size() > 10)
-        maxHeap.poll();
-    }
-    while (!maxHeap.isEmpty())
-      sells.add(maxHeap.poll());
-    Collections.reverse(sells);
-    return sells;
-  }
+  List<Order> topSells(int limit);
 
-  int buySize() {
-    return buyOrders.size();
-  }
+  default void display(int limit) {
+    if (limit > maxLimit())
+      LOGGER.warn("Exceeded the maxLimit displaying {}", maxLimit());
+    System.out.printf(
+        ConsoleColors.GREEN + "Orderbook: productId: %1$30s Frequency: buy: %2$15d sell: %3$15d \n"
+            + ConsoleColors.RESET,
+        getProductId(), buySize(), sellSize());
+    var topBuyOrders = topBuys(limit);
+    var topSellOrders = topSells(limit);
 
-  int sellSize() {
-    return sellOrders.size();
-  }
-
-  @Override
-  public void display() {
-    System.out.printf("Orderbook: productId: %s Frequency: buy: %d sell: %d%n", productId,
-        buyOrders.size(), sellOrders.size());
-    var topBuyOrders = top10Buys();
-    var topSellOrders = top10Sells();
     for (int i = 0; i < topBuyOrders.size(); i++) {
       Optional<Order> buyItem = Optional.empty();
       Optional<Order> sellItem = Optional.empty();
@@ -278,17 +256,9 @@ public class Orderbook implements Displayable, Updateable {
         buyItem = Optional.of(topBuyOrders.get(i));
       if (topSellOrders.size() - 1 >= i)
         sellItem = Optional.of(topSellOrders.get(i));
-
-      System.out.println("| " + buyItem.map(Order::toString).orElse("") + " | "
-          + sellItem.map(Order::toString).orElse("") + " |");
+      System.out.printf(ConsoleColors.BLUE + "| %1$45s | %2$45s |\n" + ConsoleColors.RESET,
+          buyItem.map(Order::toString).orElse(""), sellItem.map(Order::toString).orElse(""));
     }
-  }
 
-  @Override
-  public void update(Order order) {
-    if (order.getOrderType().equals(OrderType.BUY))
-      buyOrders.offer(order);
-    if (order.getOrderType().equals(OrderType.SELL))
-      sellOrders.offer(order);
   }
 }

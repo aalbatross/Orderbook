@@ -201,8 +201,36 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.reactive.flows;
 
-interface Displayable {
-  void display(int limit);
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+
+public class LimitOrderbookFlowIntegrationTest {
+
+  @Test
+  public void testSimpleOrderbookFlow() throws InterruptedException {
+    var flow = new OrderbookFlow("ETH-USD", "test");
+    flow.start();
+    Assertions.assertEquals("test", flow.name());
+    Assertions.assertEquals("ETH-USD", flow.getProductId());
+
+    Thread.sleep(5000);
+    Assertions.assertTrue(flow.isRunning());
+    flow.stop();
+
+    final var standardOut = System.out;
+    final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
+    System.setOut(new PrintStream(outputStreamCaptor));
+    flow.display(10);
+    Assertions.assertFalse(outputStreamCaptor.toString(StandardCharsets.UTF_8).isEmpty());
+    Assertions.assertTrue(outputStreamCaptor.toString(StandardCharsets.UTF_8).replaceAll("\\s", "")
+        .contains("Orderbook: productId: ETH-USD".replaceAll("\\s", "")));
+    System.setOut(standardOut);
+    Assertions.assertFalse(flow.isRunning());
+  }
 }

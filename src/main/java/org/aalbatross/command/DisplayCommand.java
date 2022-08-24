@@ -204,16 +204,29 @@
 package org.aalbatross.command;
 
 import org.aalbatross.reactive.flows.OrderbookFlowManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
 public class DisplayCommand implements Helpable, Validatable, Command {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DisplayCommand.class);
   private String productId;
+  private Optional<Integer> limit;
 
   @Override
   public boolean test(List<String> command) {
-    if (command.size() == 2 && command.get(0).trim().equals("display")) {
+    if (command.size() >= 2 && command.get(0).trim().equals("display")) {
       productId = command.get(1).trim();
+      limit = Optional.of(command.size() == 3).map(sizeIs3 -> {
+        try {
+          return Integer.parseInt(command.get(2).trim());
+        } catch (Exception ex) {
+          LOGGER.warn("limit should be a number and not string. Using default 10.");
+          return 10;
+        }
+      });
     } else {
       System.out.println(helpMessage());
       return false;
@@ -223,8 +236,13 @@ public class DisplayCommand implements Helpable, Validatable, Command {
 
   @Override
   public void handle(List<String> command) {
-    if (test(command))
-      OrderbookFlowManager.INSTANCE.displayOrderBook(productId);
+    if (test(command)) {
+      var limitValue = limit.orElseGet(() -> {
+        LOGGER.warn("limit not provided. Using default 10.");
+        return 10;
+      });
+      OrderbookFlowManager.INSTANCE.displayOrderBook(productId, limitValue);
+    }
   }
 
   @Override

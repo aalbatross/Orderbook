@@ -203,6 +203,151 @@
 */
 package org.aalbatross.orderbook;
 
-interface Displayable {
-  void display(int limit);
+import org.aalbatross.orderbook.entities.Order;
+import org.aalbatross.orderbook.entities.OrderType;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.ToString;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+public class BenchmarkTest {
+  private static final int ORDERS = 10_000;
+  List<Order> buysLarge = IntStream.range(0, ORDERS).asDoubleStream()
+      .mapToObj(price -> Order.builder().orderType(OrderType.BUY).price(price).size(15.0).build())
+      .collect(Collectors.toList());
+  List<Order> sellsLarge = IntStream.range(0, ORDERS).asDoubleStream()
+      .mapToObj(price -> Order.builder().orderType(OrderType.SELL).price(price).size(15.0).build())
+      .collect(Collectors.toList());
+
+  private enum Type {
+    SKIPLIST, MAP
+  }
+
+  @Builder
+  @Getter
+  static class BM {
+    private final Type type;
+    private final BigDecimal timesInSeconds;
+    private final long timeInNanos;
+    private final boolean shuffled;
+    private final int limit;
+
+    @Override
+    public String toString() {
+      final StringBuffer sb = new StringBuffer("BM{");
+      sb.append("type=").append(type);
+      sb.append(", timesInSeconds=").append(timesInSeconds.toPlainString());
+      sb.append(", timeInNanos=").append(timeInNanos);
+      sb.append(", shuffled=").append(shuffled);
+      sb.append(", limit=").append(limit);
+      sb.append('}');
+      return sb.toString();
+    }
+  }
+
+  private BM timedTest(Type type, int maxLimit, boolean shuffle) {
+    final Orderbook BOOK = switch (type) {
+      case SKIPLIST -> Orderbooks.usingSkipListMap("XYZ", maxLimit);
+      case MAP -> Orderbooks.usingMap("XYZ", maxLimit);
+    };
+    List<Order> allOrders = new ArrayList<>();
+    allOrders.addAll(buysLarge);
+    allOrders.addAll(sellsLarge);
+    if (shuffle)
+      Collections.shuffle(allOrders);
+    Assertions.assertEquals(maxLimit, BOOK.maxLimit());
+    long startTime = System.nanoTime();
+    allOrders.forEach(BOOK::update);
+    var allTime = System.nanoTime() - startTime;
+    if (maxLimit < 5000)
+      validateBenchmarkWasCorrect(maxLimit, allOrders, shuffle);
+    var avgTime = allTime / allOrders.size();
+    var elapsedTimeInSecond =
+        BigDecimal.valueOf(avgTime).divide(BigDecimal.valueOf(1_000_000_000)).setScale(12);
+    return BM.builder().shuffled(shuffle).timeInNanos(avgTime).timesInSeconds(elapsedTimeInSecond)
+        .limit(maxLimit).type(type).build();
+  }
+
+  private void validateBenchmarkWasCorrect(int maxLimit, List<Order> allOrders, boolean shuffle) {
+    var buyLimit = (ConcurrentHashMap<Double, Limit>) Mockito.spy(ConcurrentHashMap.class);
+    var sellLimit = (ConcurrentHashMap<Double, Limit>) Mockito.spy(ConcurrentHashMap.class);
+    var buySet = (ConcurrentSkipListSet<Double>) Mockito.spy(ConcurrentSkipListSet.class);
+    var sellSet = (ConcurrentSkipListSet<Double>) Mockito.spy(ConcurrentSkipListSet.class);
+    LimitOrderbook BOOK = new LimitOrderbook("XYZ", maxLimit, buyLimit, buySet, sellLimit, sellSet);
+
+    allOrders.stream().forEachOrdered(BOOK::update);
+    Assertions.assertEquals(maxLimit, BOOK.maxLimit());
+    if (!shuffle) {// worst case
+      verify(buySet, times(buysLarge.size())).add(any(Double.class));
+      verify(buySet, times(ORDERS - maxLimit)).pollFirst();
+      verify(sellSet, times(sellsLarge.size())).add(any(Double.class));
+      verify(sellSet, times(ORDERS - maxLimit)).pollFirst();
+      var values2 = sellLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
+          .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+      Assertions.assertEquals(maxLimit, values2.size());
+      var values = buyLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
+          .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+      Assertions.assertEquals(maxLimit, values.size());
+    } else {
+      verify(buySet, atMost(buysLarge.size())).add(any(Double.class));
+      verify(buySet, atMost(ORDERS - maxLimit)).pollFirst();
+      verify(sellSet, atMost(sellsLarge.size())).add(any(Double.class));
+      verify(sellSet, atMost(ORDERS - maxLimit)).pollFirst();
+      var values2 = sellLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
+          .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+      Assertions.assertTrue(maxLimit >= values2.size());
+      var values = buyLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
+          .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+      Assertions.assertTrue(maxLimit >= values.size());
+    }
+  }
+
+
+  @Builder
+  @ToString
+  static class BMTableRow {
+    private long mapInNanos;
+    private String mapInSeconds;
+    private long shuffledMapInNanos;
+    private String shuffledMapInSeconds;
+    private long skipListInNanos;
+    private String skipListInSeconds;
+    private long shuffledSkipListInNanos;
+    private String shuffledSkipListInSeconds;
+    private int maxLimit;
+  }
+
+  @Test
+  public void benchMarkTest() {
+    IntStream.of(1, 10, 100, 200, 500, 1000)
+        .mapToObj(x -> List
+            .of(timedTest(Type.MAP, x, true), timedTest(Type.MAP, x, false),
+                timedTest(Type.SKIPLIST, x, true), timedTest(Type.SKIPLIST, x, false))
+            .stream().collect(Collectors.toUnmodifiableList()))
+        .forEachOrdered(result -> {
+          var row = BMTableRow.builder().mapInNanos(result.get(1).timeInNanos)
+              .mapInSeconds(result.get(1).getTimesInSeconds().toPlainString())
+              .shuffledMapInNanos(result.get(0).timeInNanos)
+              .shuffledMapInSeconds(result.get(0).getTimesInSeconds().toPlainString())
+              .skipListInNanos(result.get(3).timeInNanos)
+              .skipListInSeconds(result.get(3).getTimesInSeconds().toPlainString())
+              .shuffledSkipListInNanos(result.get(2).timeInNanos)
+              .shuffledSkipListInSeconds(result.get(2).getTimesInSeconds().toPlainString())
+              .maxLimit(result.get(0).limit).build();
+          System.out.println(row);
+        });
+  }
 }

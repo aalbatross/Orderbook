@@ -204,6 +204,7 @@
 package org.aalbatross.reactive.subscribers;
 
 import org.aalbatross.orderbook.Orderbook;
+import org.aalbatross.orderbook.Orderbooks;
 import org.aalbatross.orderbook.entities.Order;
 import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
@@ -217,9 +218,9 @@ public class ProductOrderSubscriber implements FlowableSubscriber<Order> {
   private final Orderbook book;
   private Subscription subscription;
 
-  public ProductOrderSubscriber(String productId) {
+  public ProductOrderSubscriber(String productId, int maxLimit) {
     this.productId = productId;
-    this.book = new Orderbook(productId);
+    this.book = Orderbooks.usingSkipListMap(productId, maxLimit);
   }
 
   public Orderbook book() {

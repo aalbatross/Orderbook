@@ -201,8 +201,16 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.reactive.client;
 
-interface Displayable {
-  void display(int limit);
+public interface Client {
+  void start();
+
+  void stop();
+
+  boolean isRunning();
+
+  void send(byte[] bytes);
+
+  void receive(byte[] bytes);
 }

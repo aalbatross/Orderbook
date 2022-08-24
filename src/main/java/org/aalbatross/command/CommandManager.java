@@ -203,6 +203,8 @@
 */
 package org.aalbatross.command;
 
+import org.aalbatross.reactive.flows.OrderbookFlowManager;
+
 import java.util.List;
 
 public enum CommandManager implements Command, Helpable {
@@ -229,6 +231,7 @@ public enum CommandManager implements Command, Helpable {
         new DisplayCommand().handle(command);
         break;
       case "exit":
+        OrderbookFlowManager.INSTANCE.closeAll();
         System.exit(0);
         break;
       default:

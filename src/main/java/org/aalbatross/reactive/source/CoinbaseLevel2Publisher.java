@@ -201,8 +201,86 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-package org.aalbatross.orderbook;
+package org.aalbatross.reactive.source;
 
-interface Displayable {
-  void display(int limit);
+import org.aalbatross.configuration.WebsocketClientConfiguration;
+import org.aalbatross.orders.channels.requests.Level2Subscription;
+import org.aalbatross.orders.channels.requests.Level2Unsubscribe;
+import org.aalbatross.reactive.client.WebsocketClient;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import jakarta.websocket.ClientEndpointConfig;
+
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+
+public class CoinbaseLevel2Publisher implements Publisher<String>, AutoCloseable {
+  private final ObjectMapper MAPPER;
+
+  private final String productId;
+
+  private CountDownLatch countDownLatch = new CountDownLatch(1);
+  private static final String ENDPOINT = "wss://ws-feed.exchange.coinbase.com";
+  private WebsocketClient client;
+
+  public CoinbaseLevel2Publisher(String productId) {
+    this.productId = productId;
+    MAPPER = new ObjectMapper();
+    MAPPER.registerModule(new JavaTimeModule());
+  }
+
+  void subscribe() {
+    var request = Level2Subscription.builder().productIds(List.of(productId)).build();
+    try {
+      var subMsg = MAPPER.writeValueAsString(request);
+      client.send(subMsg.getBytes(StandardCharsets.UTF_8));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  void unSubscribe() {
+    var request = Level2Unsubscribe.builder().productIds(List.of(productId)).build();
+    try {
+      var subMsg = MAPPER.writeValueAsString(request);
+      client.send(subMsg.getBytes(StandardCharsets.UTF_8));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public void close() throws Exception {
+    unSubscribe();
+    countDownLatch.countDown();
+    client.stop();
+  }
+
+  public boolean isRunning() {
+    return client.isRunning();
+  }
+
+  @Override
+  public void subscribe(Subscriber<? super String> emitter) {
+    WebsocketClientConfiguration configuration = WebsocketClientConfiguration.builder()
+        .endpointConfig(ClientEndpointConfig.Builder.create().build())
+        .endPoint(URI.create(ENDPOINT)).build();
+    client = WebsocketClient.Builder.aWebsocketClient(configuration).withOnError(emitter::onError)
+        .withOnClose((e) -> countDownLatch.countDown()).withOnReceive(emitter::onNext).build();
+    client.start();
+    subscribe();
+    try {
+      countDownLatch.await();
+    } catch (InterruptedException e) {
+    }
+    client.stop();
+    emitter.onComplete();
+  }
 }

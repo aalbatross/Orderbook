@@ -214,4 +214,10 @@ public class Order {
   private final OrderType orderType;
   private final double price;
   private final double size;
+
+  @Override
+  public String toString() {
+    return String.format("Order(OrderType=%1$4s, price=%2$8.2f, size=%3$10.10f)", orderType.name(),
+        price, size);
+  }
 }
