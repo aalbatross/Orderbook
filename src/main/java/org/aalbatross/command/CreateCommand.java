@@ -204,17 +204,32 @@
 package org.aalbatross.command;
 
 import org.aalbatross.reactive.flows.OrderbookFlowManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
 public class CreateCommand implements Command, Validatable, Helpable {
-
+  private static final Logger LOGGER = LoggerFactory.getLogger(CreateCommand.class);
   private String productId;
+  private int limit;
 
   @Override
   public boolean test(List<String> command) {
-    if (command.size() == 2 && command.get(0).trim().equals("create")) {
+    if (command.size() >= 2 && command.get(0).trim().equals("create")) {
       productId = command.get(1).trim();
+      limit = Optional.of(command.size() == 3).map(sizeIs3 -> {
+        try {
+          return Integer.parseInt(command.get(2).trim());
+        } catch (Exception ex) {
+          LOGGER.warn("limit should be a number and not string. Using default 10.");
+          return 10;
+        }
+      }).orElseGet(() -> {
+        LOGGER.warn("Setting default limit value to 10.");
+        return 10;
+      });
     } else {
       System.out.println(helpMessage());
       return false;
@@ -225,11 +240,11 @@ public class CreateCommand implements Command, Validatable, Helpable {
   @Override
   public void handle(List<String> command) {
     if (test(command))
-      OrderbookFlowManager.INSTANCE.createNewOrderbook(productId);
+      OrderbookFlowManager.INSTANCE.createNewOrderbook(productId, limit);
   }
 
   @Override
   public String helpMessage() {
-    return "create command syntax: create <product_id> \n example: create ETH-USD";
+    return "create command syntax: create <product_id> <max_limit(optional)> \n example: create ETH-USD 100";
   }
 }

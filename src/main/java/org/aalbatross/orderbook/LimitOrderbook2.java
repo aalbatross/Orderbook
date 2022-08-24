@@ -209,14 +209,13 @@ import org.aalbatross.orderbook.entities.OrderType;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 public class LimitOrderbook2 implements Orderbook {
   private final NavigableMap<Double, Limit> buyLimit;
   private final NavigableMap<Double, Limit> sellLimit;
 
-  private AtomicLong buyFrequency = new AtomicLong();
-  private AtomicLong sellFrequency = new AtomicLong();
+  private final AtomicLong buyFrequency = new AtomicLong();
+  private final AtomicLong sellFrequency = new AtomicLong();
 
   private final String productId;
   private final int maxLimit;
@@ -239,19 +238,19 @@ public class LimitOrderbook2 implements Orderbook {
   public List<Order> topBuys(int limit) {
     if (limit > maxLimit)
       limit = maxLimit;
-    return buyLimit.descendingKeySet().stream().limit(limit).map(price -> buyLimit.get(price))
+    return buyLimit.descendingKeySet().stream().limit(limit).map(buyLimit::get)
         .map(priceLimit -> Order.builder().orderType(OrderType.BUY).price(priceLimit.getPrice())
             .size(priceLimit.getSize()).build())
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public List<Order> topSells(int limit) {
     if (limit > maxLimit)
       limit = maxLimit;
-    return sellLimit.descendingKeySet().stream().limit(limit).map(price -> sellLimit.get(price))
+    return sellLimit.descendingKeySet().stream().limit(limit).map(sellLimit::get)
         .map(priceLimit -> Order.builder().orderType(OrderType.SELL).price(priceLimit.getPrice())
             .size(priceLimit.getSize()).build())
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   @Override
@@ -261,14 +260,18 @@ public class LimitOrderbook2 implements Orderbook {
 
   @Override
   public Order highestBid() {
-    return Optional.of(buyLimit.lastEntry().getValue()).map(limit -> Order.builder()
-        .orderType(OrderType.BUY).price(limit.getPrice()).size(limit.getSize()).build()).get();
+    return Optional
+        .of(buyLimit.lastEntry().getValue()).map(limit -> Order.builder().orderType(OrderType.BUY)
+            .price(limit.getPrice()).size(limit.getSize()).build())
+        .orElseThrow(NoSuchElementException::new);
   }
 
   @Override
   public Order lowestAsk() {
-    return Optional.of(sellLimit.lastEntry().getValue()).map(limit -> Order.builder()
-        .orderType(OrderType.BUY).price(limit.getPrice()).size(limit.getSize()).build()).get();
+    return Optional
+        .of(sellLimit.lastEntry().getValue()).map(limit -> Order.builder().orderType(OrderType.BUY)
+            .price(limit.getPrice()).size(limit.getSize()).build())
+        .orElseThrow(NoSuchElementException::new);
   }
 
   @Override

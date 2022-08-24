@@ -219,7 +219,7 @@ import java.util.Optional;
 
 public class Decoder implements Function<String, Optional<Level2Response>> {
   private static final Logger LOGGER = LoggerFactory.getLogger(Decoder.class);
-  private ObjectMapper MAPPER;
+  private final ObjectMapper MAPPER;
 
   public Decoder() {
     MAPPER = new ObjectMapper();

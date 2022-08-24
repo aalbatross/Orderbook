@@ -239,6 +239,10 @@ public class App implements CommandLineRunner {
       var commandInput = sc.nextLine();
       var cmds = Arrays.asList(commandInput.split("\\s"));
       try {
+        if (!cmds.isEmpty() && cmds.get(0).trim().equalsIgnoreCase("exit")) {
+          OrderbookFlowManager.INSTANCE.closeAll();
+          break;
+        }
         CommandManager.INSTANCE.handle(cmds);
       } catch (Exception ex) {
         LOGGER.error("Error running command : {}", ex.getMessage(), ex);

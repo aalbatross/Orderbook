@@ -226,7 +226,7 @@ public class CoinbaseLevel2Publisher implements Publisher<String>, AutoCloseable
 
   private final String productId;
 
-  private CountDownLatch countDownLatch = new CountDownLatch(1);
+  private final CountDownLatch countDownLatch = new CountDownLatch(1);
   private static final String ENDPOINT = "wss://ws-feed.exchange.coinbase.com";
   private WebsocketClient client;
 
@@ -278,7 +278,7 @@ public class CoinbaseLevel2Publisher implements Publisher<String>, AutoCloseable
     subscribe();
     try {
       countDownLatch.await();
-    } catch (InterruptedException e) {
+    } catch (InterruptedException ignored) {
     }
     client.stop();
     emitter.onComplete();

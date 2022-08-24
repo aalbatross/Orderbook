@@ -220,11 +220,11 @@ public class LimitOrderbookFlowManagerIntegrationTest {
   @Test
   public void simpleFlowManagerTest() throws InterruptedException {
     var mgr = OrderbookFlowManager.INSTANCE;
-    mgr.createNewOrderbook("ETH-USD");
-    mgr.createNewOrderbook("BTC-USD");
+    mgr.createNewOrderbook("ETH-USD", 10);
+    mgr.createNewOrderbook("BTC-USD", 10);
 
     Thread.sleep(5000);
-    Assertions.assertEquals(Set.of("ETH-USD", "BTC-USD"), mgr.list());
+    Assertions.assertEquals(Set.of("ETH-USD", "BTC-USD"), mgr.list().keySet());
 
     mgr.displayOrderBook("ETH-USD", 10);
     mgr.displayOrderBook("BTC-USD", 10);
@@ -241,10 +241,10 @@ public class LimitOrderbookFlowManagerIntegrationTest {
   @Test
   public void sameProductFlowManagerTest() throws InterruptedException {
     var mgr = OrderbookFlowManager.INSTANCE;
-    mgr.createNewOrderbook("ETH-USD");
+    mgr.createNewOrderbook("ETH-USD", 10);
 
     Thread.sleep(5000);
-    Assertions.assertThrows(RuntimeException.class, () -> mgr.createNewOrderbook("ETH-USD"));
+    Assertions.assertThrows(RuntimeException.class, () -> mgr.createNewOrderbook("ETH-USD", 10));
   }
 
   @Test

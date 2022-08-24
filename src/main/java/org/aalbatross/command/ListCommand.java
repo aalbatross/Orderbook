@@ -211,7 +211,7 @@ public class ListCommand implements Validatable, Command, Helpable {
   @Override
   public void handle(List<String> command) {
     if (test(command)) {
-      System.out.println(OrderbookFlowManager.INSTANCE.list());
+      OrderbookFlowManager.INSTANCE.list().values().forEach(System.out::println);
     }
   }
 

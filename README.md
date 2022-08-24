@@ -10,7 +10,7 @@ The application connects to coinbase cloud and receive update of ongoing trade b
 ## Build application
 
 Application requires:
-maven 3.5+ & jdk 11 on developers desktop.
+maven 3.5+ & jdk 17 on developers desktop.
 
 Execute:  
 ```> mvn clean install```
