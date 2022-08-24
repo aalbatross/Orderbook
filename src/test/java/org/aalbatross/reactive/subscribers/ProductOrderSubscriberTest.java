@@ -242,9 +242,8 @@ public class ProductOrderSubscriberTest {
     final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
     System.setOut(new PrintStream(outputStreamCaptor));
     var subs = new ProductOrderSubscriber("XYZ", 10);
-    FlowableOnSubscribe<Order> publisher = (emitter) -> {
-      emitter.onError(new RuntimeException("Bullshit"));
-    };
+    FlowableOnSubscribe<Order> publisher =
+        (emitter) -> emitter.onError(new RuntimeException("Bullshit"));
     Flowable.create(publisher, BackpressureStrategy.LATEST).subscribe(subs);
     Assertions.assertFalse(outputStreamCaptor.toString(StandardCharsets.UTF_8).isEmpty());
     Assertions.assertTrue(outputStreamCaptor.toString(StandardCharsets.UTF_8)

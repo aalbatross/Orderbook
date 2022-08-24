@@ -213,7 +213,7 @@ import java.util.Optional;
 public class DisplayCommand implements Helpable, Validatable, Command {
   private static final Logger LOGGER = LoggerFactory.getLogger(DisplayCommand.class);
   private String productId;
-  private Optional<Integer> limit;
+  private int limit;
 
   @Override
   public boolean test(List<String> command) {
@@ -226,6 +226,9 @@ public class DisplayCommand implements Helpable, Validatable, Command {
           LOGGER.warn("limit should be a number and not string. Using default 10.");
           return 10;
         }
+      }).orElseGet(() -> {
+        LOGGER.warn("Setting default limit value to 10.");
+        return 10;
       });
     } else {
       System.out.println(helpMessage());
@@ -237,16 +240,12 @@ public class DisplayCommand implements Helpable, Validatable, Command {
   @Override
   public void handle(List<String> command) {
     if (test(command)) {
-      var limitValue = limit.orElseGet(() -> {
-        LOGGER.warn("limit not provided. Using default 10.");
-        return 10;
-      });
-      OrderbookFlowManager.INSTANCE.displayOrderBook(productId, limitValue);
+      OrderbookFlowManager.INSTANCE.displayOrderBook(productId, limit);
     }
   }
 
   @Override
   public String helpMessage() {
-    return "display command syntax: display <product_id> \n example: display ETH-USD";
+    return "display command syntax: display <product_id> <limit(optional)> \n example: display ETH-USD 10";
   }
 }

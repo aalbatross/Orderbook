@@ -222,11 +222,11 @@ class OrderbookFlow implements Flow {
   private final CoinbaseLevel2Publisher level2OrderSource;
   private final ProductOrderSubscriber subscriber;
 
-  public OrderbookFlow(@NonNull String productId, @NonNull String name) {
+  public OrderbookFlow(@NonNull String productId, @NonNull String name, int maxLimit) {
     this.productId = productId;
     this.name = name;
     this.level2OrderSource = new CoinbaseLevel2Publisher(productId);
-    this.subscriber = new ProductOrderSubscriber(productId, 10);
+    this.subscriber = new ProductOrderSubscriber(productId, maxLimit);
   }
 
   @Override
@@ -261,5 +261,11 @@ class OrderbookFlow implements Flow {
   @Override
   public synchronized boolean isRunning() {
     return level2OrderSource.isRunning();
+  }
+
+  @Override
+  public String description() {
+    return String.format("Product Name: " + productId + " Max Size:" + subscriber.book().maxLimit()
+        + " Flow Name: " + name);
   }
 }

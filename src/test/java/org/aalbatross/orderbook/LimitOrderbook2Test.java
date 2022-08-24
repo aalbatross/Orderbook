@@ -207,12 +207,10 @@ import org.aalbatross.orderbook.entities.Order;
 import org.aalbatross.orderbook.entities.OrderType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.stream.Collectors;
@@ -222,11 +220,18 @@ import java.util.stream.Stream;
 
 public class LimitOrderbook2Test {
 
-  List<Order> buys = IntStream.range(0, 20).asDoubleStream()
+  final List<Order> buys = IntStream.range(0, 20).asDoubleStream()
       .mapToObj(price -> Order.builder().orderType(OrderType.BUY).price(price).size(15.0).build())
       .collect(Collectors.toList());
-  List<Order> sells = IntStream.range(0, 20).asDoubleStream()
+  final List<Order> sells = IntStream.range(0, 20).asDoubleStream()
       .mapToObj(price -> Order.builder().orderType(OrderType.SELL).price(price).size(15.0).build())
+      .collect(Collectors.toList());
+
+  final List<Order> buysSamePrice = IntStream.range(0, 20).asDoubleStream()
+      .mapToObj(size -> Order.builder().orderType(OrderType.BUY).price(20).size(size).build())
+      .collect(Collectors.toList());
+  final List<Order> sellsSamePrice = IntStream.range(0, 20).asDoubleStream()
+      .mapToObj(size -> Order.builder().orderType(OrderType.SELL).price(20).size(size).build())
       .collect(Collectors.toList());
 
   @Test
@@ -267,18 +272,51 @@ public class LimitOrderbook2Test {
   }
 
   @Test
+  public void displayTestUpdates() {
+    LimitOrderbook BOOK = new LimitOrderbook("XYZ", 10);
+    Stream.concat(buysSamePrice.stream(), sellsSamePrice.stream()).forEachOrdered(BOOK::update);
+
+    Assertions.assertEquals(20, BOOK.buySize());
+    Assertions.assertEquals(20, BOOK.sellSize());
+
+    var expectedBuyResult =
+        List.of(Order.builder().orderType(OrderType.BUY).price(20).size(19.0d).build());
+    var expectedSellResult =
+        List.of(Order.builder().orderType(OrderType.SELL).price(20).size(19.0d).build());
+
+    Assertions.assertEquals(expectedBuyResult, BOOK.top10Buys());
+    Assertions.assertEquals(expectedSellResult, BOOK.top10Sells());
+    Assertions.assertEquals("XYZ", BOOK.getProductId());
+
+    final var standardOut = System.out;
+    final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
+    System.setOut(new PrintStream(outputStreamCaptor));
+    BOOK.display(10);
+    Assertions.assertFalse(outputStreamCaptor.toString(StandardCharsets.UTF_8).isEmpty());
+    Assertions.assertTrue(outputStreamCaptor.toString(StandardCharsets.UTF_8).replaceAll("\\s", "")
+        .contains("Orderbook: productId: XYZ Frequency: buy: 20 sell: 20".replaceAll("\\s", "")));
+    System.setOut(standardOut);
+    System.out.println(outputStreamCaptor.toString(StandardCharsets.UTF_8));
+
+    var orderEmptyBuy = Order.builder().orderType(OrderType.BUY).price(10).size(0.000d).build();
+    var orderEmptySell = Order.builder().orderType(OrderType.SELL).price(10).size(0.000d).build();
+    List.of(orderEmptyBuy, orderEmptySell).forEach(BOOK::update);
+
+    Assertions.assertEquals(expectedBuyResult, BOOK.top10Buys());
+    Assertions.assertEquals(expectedSellResult, BOOK.top10Sells());
+  }
+
+  @Test
   public void checkUpdate() {
-    var buyLimit = (ConcurrentSkipListMap<Double, Limit>) Mockito.spy(ConcurrentSkipListMap.class);
-    var sellLimit = (ConcurrentSkipListMap<Double, Limit>) Mockito.spy(ConcurrentSkipListMap.class);
+    var buyLimit = new ConcurrentSkipListMap<Double, Limit>();
+    var sellLimit = new ConcurrentSkipListMap<Double, Limit>();
     LimitOrderbook2 BOOK = new LimitOrderbook2("XYZ", 10, buyLimit, sellLimit);
 
-    buys.stream().forEachOrdered(BOOK::update);
-    var values = buyLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
-        .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+    buys.forEach(BOOK::update);
+    var values = buyLimit.values().stream().toList();
     Assertions.assertEquals(10, values.size());
-    sells.stream().forEachOrdered(BOOK::update);
-    var values2 = sellLimit.values().stream().map(Limit::getFreqOrders).map(m -> m.values())
-        .flatMap(Collection::stream).collect(Collectors.toUnmodifiableList());
+    sells.forEach(BOOK::update);
+    var values2 = sellLimit.values().stream().toList();
     Assertions.assertEquals(10, values2.size());
   }
 }

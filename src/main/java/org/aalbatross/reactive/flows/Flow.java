@@ -211,4 +211,6 @@ public interface Flow {
   void stop();
 
   boolean isRunning();
+
+  String description();
 }

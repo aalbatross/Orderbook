@@ -258,11 +258,6 @@ public class WebsocketClient implements Client {
   }
 
   @Override
-  public void receive(byte[] bytes) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public void stop() {
     if (isRunning()) {
       try {

@@ -212,7 +212,6 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ResponseToOrdersTest {
 
@@ -227,14 +226,14 @@ public class ResponseToOrdersTest {
     Assertions.assertFalse(orders.isEmpty());
     Assertions.assertEquals(2, orders.size());
 
-    var onlySells = orders.stream().filter(order -> order.getOrderType().equals(OrderType.SELL))
-        .collect(Collectors.toList());
+    var onlySells =
+        orders.stream().filter(order -> order.getOrderType().equals(OrderType.SELL)).toList();
     Assertions.assertEquals(1, onlySells.size());
     Assertions.assertEquals(10101.10d, onlySells.get(0).getPrice(), 0.0d);
     Assertions.assertEquals(0.45054140d, onlySells.get(0).getSize(), 0.0d);
 
-    var onlyBuys = orders.stream().filter(order -> order.getOrderType().equals(OrderType.BUY))
-        .collect(Collectors.toList());
+    var onlyBuys =
+        orders.stream().filter(order -> order.getOrderType().equals(OrderType.BUY)).toList();
     Assertions.assertEquals(1, onlyBuys.size());
     Assertions.assertEquals(10102.55d, onlyBuys.get(0).getPrice(), 0.0d);
     Assertions.assertEquals(0.57753524d, onlyBuys.get(0).getSize(), 0.0d);
@@ -251,8 +250,8 @@ public class ResponseToOrdersTest {
     Assertions.assertFalse(orders.isEmpty());
     Assertions.assertEquals(2, orders.size());
 
-    var onlySells = orders.stream().filter(order -> order.getOrderType().equals(OrderType.SELL))
-        .collect(Collectors.toList());
+    var onlySells =
+        orders.stream().filter(order -> order.getOrderType().equals(OrderType.SELL)).toList();
     Assertions.assertEquals(1, onlySells.size());
     Assertions.assertEquals(10101.10d, onlySells.get(0).getPrice(), 0.0d);
     Assertions.assertEquals(0.45054140d, onlySells.get(0).getSize(), 0.0d);

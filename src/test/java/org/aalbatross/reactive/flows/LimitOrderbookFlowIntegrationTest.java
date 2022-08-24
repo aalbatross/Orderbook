@@ -214,7 +214,7 @@ public class LimitOrderbookFlowIntegrationTest {
 
   @Test
   public void testSimpleOrderbookFlow() throws InterruptedException {
-    var flow = new OrderbookFlow("ETH-USD", "test");
+    var flow = new OrderbookFlow("ETH-USD", "test", 10);
     flow.start();
     Assertions.assertEquals("test", flow.name());
     Assertions.assertEquals("ETH-USD", flow.getProductId());

@@ -203,7 +203,6 @@
 */
 package org.aalbatross.command;
 
-import org.aalbatross.reactive.flows.OrderbookFlowManager;
 
 import java.util.List;
 
@@ -218,24 +217,11 @@ public enum CommandManager implements Command, Helpable {
     }
     var cmd = command.get(0).trim();
     switch (cmd) {
-      case "create":
-        new CreateCommand().handle(command);
-        break;
-      case "drop":
-        new DropCommand().handle(command);
-        break;
-      case "list":
-        new ListCommand().handle(command);
-        break;
-      case "display":
-        new DisplayCommand().handle(command);
-        break;
-      case "exit":
-        OrderbookFlowManager.INSTANCE.closeAll();
-        System.exit(0);
-        break;
-      default:
-        System.out.println(helpMessage());
+      case "create" -> new CreateCommand().handle(command);
+      case "drop" -> new DropCommand().handle(command);
+      case "list" -> new ListCommand().handle(command);
+      case "display" -> new DisplayCommand().handle(command);
+      default -> System.out.println(helpMessage());
     }
   }
 

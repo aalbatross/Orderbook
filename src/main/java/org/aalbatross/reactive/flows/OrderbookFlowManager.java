@@ -203,23 +203,21 @@
 */
 package org.aalbatross.reactive.flows;
 
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public enum OrderbookFlowManager {
   INSTANCE;
 
   private final Map<String, OrderbookFlow> flowStore = new ConcurrentHashMap<>();
 
-  public void createNewOrderbook(String productId) {
+  public void createNewOrderbook(String productId, int maxLimit) {
     var productKey = productId.toUpperCase(Locale.ROOT);
     if (flowStore.containsKey(productKey))
       throw new RuntimeException("Flow already running");
     flowStore.computeIfAbsent(productKey, (key) -> {
-      var flow = new OrderbookFlow(productKey, key + UUID.randomUUID());
+      var flow = new OrderbookFlow(productKey, key + UUID.randomUUID(), maxLimit);
       flow.start();
       return flow;
     });
@@ -244,8 +242,10 @@ public enum OrderbookFlowManager {
     }
   }
 
-  public Set<String> list() {
-    return flowStore.keySet();
+  public Map<String, String> list() {
+    return flowStore.entrySet().stream()
+        .map(entry -> new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue().description()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   public void closeAll() {

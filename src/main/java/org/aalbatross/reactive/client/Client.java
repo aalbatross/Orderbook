@@ -212,5 +212,4 @@ public interface Client {
 
   void send(byte[] bytes);
 
-  void receive(byte[] bytes);
 }

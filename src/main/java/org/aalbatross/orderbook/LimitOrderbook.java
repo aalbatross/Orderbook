@@ -210,7 +210,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 class LimitOrderbook implements Orderbook {
   private final Map<Double, Limit> buyLimit;
@@ -219,8 +218,8 @@ class LimitOrderbook implements Orderbook {
   private final Map<Double, Limit> sellLimit;
   private final NavigableSet<Double> sellSet;
 
-  private AtomicLong buyFrequency = new AtomicLong();
-  private AtomicLong sellFrequency = new AtomicLong();
+  private final AtomicLong buyFrequency = new AtomicLong();
+  private final AtomicLong sellFrequency = new AtomicLong();
 
   private final String productId;
   private final int maxLimit;
@@ -245,19 +244,19 @@ class LimitOrderbook implements Orderbook {
   public List<Order> topBuys(int limit) {
     if (limit > maxLimit)
       limit = maxLimit;
-    return buySet.descendingSet().stream().limit(limit).map(price -> buyLimit.get(price))
+    return buySet.descendingSet().stream().limit(limit).map(buyLimit::get)
         .map(priceLimit -> Order.builder().orderType(OrderType.BUY).price(priceLimit.getPrice())
             .size(priceLimit.getSize()).build())
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   public List<Order> topSells(int limit) {
     if (limit > maxLimit)
       limit = maxLimit;
-    return sellSet.descendingSet().stream().limit(limit).map(price -> sellLimit.get(price))
+    return sellSet.descendingSet().stream().limit(limit).map(sellLimit::get)
         .map(priceLimit -> Order.builder().orderType(OrderType.SELL).price(priceLimit.getPrice())
             .size(priceLimit.getSize()).build())
-        .collect(Collectors.toUnmodifiableList());
+        .toList();
   }
 
   @Override
@@ -296,29 +295,35 @@ class LimitOrderbook implements Orderbook {
   public void update(Order order) {
     if (order.getOrderType().equals(OrderType.BUY)) {
       buyFrequency.incrementAndGet();
-      buyLimit.compute(order.getPrice(), (price, limit) -> Optional.ofNullable(limit)
-          .map(limit1 -> limit1.accumulate(order)).orElseGet(() -> {
-            if (buyLimit.size() <= maxLimit || order.getPrice() > buySet.first()) {
-              buySet.add(price);
-              return new Limit(order);
-            }
-            return null;
-          }));
+      buyLimit.compute(order.getPrice(), (price, limit) -> {
+        if (Orderbook.doubleToBigDecimal(order.getSize()).equals(ZERO))
+          return null;
+        return Optional.ofNullable(limit).map(limit1 -> new Limit(order)).orElseGet(() -> {
+          if (buyLimit.size() <= maxLimit || order.getPrice() > buySet.first()) {
+            buySet.add(price);
+            return new Limit(order);
+          }
+          return null;
+        });
+      });
       if (buyLimit.size() > maxLimit) {
         buyLimit.compute(buySet.pollFirst(), (price, limit) -> null);
       }
     }
     if (order.getOrderType().equals(OrderType.SELL)) { // when less then limits 0(log limit) else
-                                                       // 0(1)
+      // 0(1)
       sellFrequency.incrementAndGet(); // 0(1)
-      sellLimit.compute(order.getPrice(), (price, limit) -> Optional.ofNullable(limit)
-          .map(limit1 -> limit1.accumulate(order)).orElseGet(() -> {
-            if (sellLimit.size() <= maxLimit || order.getPrice() < sellSet.first()) {
-              sellSet.add(price); // 0(log n)
-              return new Limit(order);
-            }
-            return null;
-          }));
+      sellLimit.compute(order.getPrice(), (price, limit) -> {
+        if (Orderbook.doubleToBigDecimal(order.getSize()).equals(ZERO))
+          return null;
+        return Optional.ofNullable(limit).map(limit1 -> new Limit(order)).orElseGet(() -> {
+          if (sellLimit.size() <= maxLimit || order.getPrice() < sellSet.first()) {
+            sellSet.add(price); // 0(log n)
+            return new Limit(order);
+          }
+          return null;
+        });
+      });
       if (sellLimit.size() > maxLimit) {
         sellLimit.compute(sellSet.pollFirst(), (price, limit) -> null);
       }
