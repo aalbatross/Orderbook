@@ -295,14 +295,17 @@ class LimitOrderbook implements Orderbook {
   public void update(Order order) {
     if (order.getOrderType().equals(OrderType.BUY)) {
       buyFrequency.incrementAndGet();
-      buyLimit.compute(order.getPrice(), (price, limit) -> Optional.ofNullable(limit)
-          .map(limit1 -> limit1.accumulate(order)).orElseGet(() -> {
-            if (buyLimit.size() <= maxLimit || order.getPrice() > buySet.first()) {
-              buySet.add(price);
-              return new Limit(order);
-            }
-            return null;
-          }));
+      buyLimit.compute(order.getPrice(), (price, limit) -> {
+        if (Orderbook.doubleToBigDecimal(order.getSize()).equals(ZERO))
+          return null;
+        return Optional.ofNullable(limit).map(limit1 -> new Limit(order)).orElseGet(() -> {
+          if (buyLimit.size() <= maxLimit || order.getPrice() > buySet.first()) {
+            buySet.add(price);
+            return new Limit(order);
+          }
+          return null;
+        });
+      });
       if (buyLimit.size() > maxLimit) {
         buyLimit.compute(buySet.pollFirst(), (price, limit) -> null);
       }
@@ -310,14 +313,17 @@ class LimitOrderbook implements Orderbook {
     if (order.getOrderType().equals(OrderType.SELL)) { // when less then limits 0(log limit) else
       // 0(1)
       sellFrequency.incrementAndGet(); // 0(1)
-      sellLimit.compute(order.getPrice(), (price, limit) -> Optional.ofNullable(limit)
-          .map(limit1 -> limit1.accumulate(order)).orElseGet(() -> {
-            if (sellLimit.size() <= maxLimit || order.getPrice() < sellSet.first()) {
-              sellSet.add(price); // 0(log n)
-              return new Limit(order);
-            }
-            return null;
-          }));
+      sellLimit.compute(order.getPrice(), (price, limit) -> {
+        if (Orderbook.doubleToBigDecimal(order.getSize()).equals(ZERO))
+          return null;
+        return Optional.ofNullable(limit).map(limit1 -> new Limit(order)).orElseGet(() -> {
+          if (sellLimit.size() <= maxLimit || order.getPrice() < sellSet.first()) {
+            sellSet.add(price); // 0(log n)
+            return new Limit(order);
+          }
+          return null;
+        });
+      });
       if (sellLimit.size() > maxLimit) {
         sellLimit.compute(sellSet.pollFirst(), (price, limit) -> null);
       }

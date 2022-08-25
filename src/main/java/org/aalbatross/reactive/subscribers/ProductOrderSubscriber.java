@@ -223,6 +223,10 @@ public class ProductOrderSubscriber implements FlowableSubscriber<Order> {
     this.book = Orderbooks.usingSkipListMap(productId, maxLimit);
   }
 
+  public String getProductId() {
+    return productId;
+  }
+
   public Orderbook book() {
     return book;
   }

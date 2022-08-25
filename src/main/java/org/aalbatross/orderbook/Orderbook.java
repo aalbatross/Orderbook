@@ -208,6 +208,8 @@ import org.aalbatross.ui.ConsoleColors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 
@@ -261,4 +263,11 @@ public interface Orderbook extends Displayable, Updateable {
     }
 
   }
+
+  BigDecimal ZERO = BigDecimal.ZERO.setScale(10, RoundingMode.DOWN);
+
+  static BigDecimal doubleToBigDecimal(double d) {
+    return BigDecimal.valueOf(d).setScale(10, RoundingMode.DOWN);
+  }
+
 }

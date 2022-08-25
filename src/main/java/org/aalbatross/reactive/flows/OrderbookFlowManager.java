@@ -244,8 +244,7 @@ public enum OrderbookFlowManager {
 
   public Map<String, String> list() {
     return flowStore.entrySet().stream()
-        .map(entry -> new AbstractMap.SimpleEntry<String, String>(entry.getKey(),
-            entry.getValue().description()))
+        .map(entry -> new AbstractMap.SimpleEntry<>(entry.getKey(), entry.getValue().description()))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 

@@ -217,7 +217,7 @@ public class Order {
 
   @Override
   public String toString() {
-    return String.format("Order(OrderType=%1$4s, price=%2$8.2f, size=%3$10.10f)", orderType.name(),
-        price, size);
+    return String.format("Order(OrderType=%1$4s, price=%2$10.10f, size=%3$10.10f)",
+        orderType.name(), price, size);
   }
 }
